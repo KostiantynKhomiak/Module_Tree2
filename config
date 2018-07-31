@@ -1,0 +1,9 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = ("01:0:$lang{TREEVIEW}:treeview_address:"          => 1,
+				   "02:1:$lang{ADD_COUNTRY}:treeview_add_country:" => 1,
+                	"03:1:$lang{ADD_REGION}:treeview_add_region:" => 1,
+                	"04:1:$lang{ADD_CITY}:treeview_add_city:" => 1,
+                	"05:1:$lang{ADD_DISTRICT}:treeview_add_district:" => 1,
+                	"06:1:$lang{ADD_STREET}:treeview_add_street:" => 1,
+                	"07:1:$lang{ADD_BUILDING}:treeview_add_building:" => 1,
+                 );

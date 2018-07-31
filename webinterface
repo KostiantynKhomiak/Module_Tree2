@@ -1,0 +1,391 @@
+#!perl
+
+use strict;
+use warnings FATAL => 'all';
+use Data::Dumper;
+use Abills::Base qw(_bp);
+use Treeview::db::Treeview;
+our ($db, $admin, %info, %conf, %lang, $html,);
+
+my $Treeview = Treeview::db::Treeview->new($db, $admin, \%conf);
+#**********************************************************
+=head2 treeview_address() - Show all addresses like tree
+
+  Arguments:
+     
+  Returns:
+    true
+=cut
+#**********************************************************
+sub treeview_address {
+  my $full_address = $Treeview->get_full_address();
+  my $country_get  = $Treeview->get_country();
+  my $region_get   = $Treeview->get_region();
+  my $city_get     = $Treeview->get_city();
+  my $district_get = $Treeview->get_district();
+  my $street_get   = $Treeview->get_street();
+  my $building_get = $Treeview->get_building();
+
+  $html->tpl_show(_include('treeview_tree', 'Treeview'));
+  print "<div align=left class=tree><br>";
+  my $tree;
+
+  print "<ul>";
+  foreach my $country (@$country_get) {
+    print "<li><span>" . $country->{name} . "</span>";
+
+    print "<ul>";
+    foreach my $region (@$region_get) {
+      next if ($region->{country_id} != $country->{id});
+      print "<li><span>" . $region->{name} . "</span>";
+
+      print "<ul>";
+      foreach my $city (@$city_get) {
+        next if ($city->{region_id} != $region->{id});
+        print "<li><span>" . $city->{name} . "</span>";
+        print "<ul>";
+        foreach my $district (@$district_get) {
+          next if ($district->{city_id} != $city->{id});
+          print "<li><span>" . $district->{name} . "</span>";
+          print "<ul>";
+          foreach my $street (@$street_get) {
+            next if ($street->{district_id} != $district->{id});
+
+            print "<li><span>" . $street->{name} . "</span>";
+            print "<ul>";
+            foreach my $building (@$building_get) {
+              next if ($building->{street_id} != $street->{id});
+
+              print "<li><span>" . $building->{name} . "</span>";
+            }
+            print "</li></ul>";
+          }
+          print "</li></ul>";
+        }
+        print "</li></ul>";
+      }
+      print "</li></ul>";
+    }
+    print "</li></ul>";
+  }
+  print "</li></ul>";
+  print "</div>";
+  return 1;
+}
+#**********************************************************
+=head2 treeview_add_country() - Add country to DB and show it in table
+
+  Arguments:
+     
+  Returns:
+    true
+=cut
+#**********************************************************
+sub treeview_add_country {
+  my $show_template = $FORM{country_form} || 0;
+  $Treeview->{ACTION}     = 'add_country';
+  $Treeview->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add_country}) {
+    $Treeview->country_add({%FORM});
+    if (!$Treeview->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+  $html->tpl_show(_include('treeview_add_country', 'Treeview'), $Treeview);
+
+  my $country_list = $Treeview->get_country();
+  my $table        = $html->table(
+    {
+      width   => '100%',
+      caption => $lang{COUNTRY},
+      border  => 1,
+      title   => [ $lang{ID}, $lang{NAME} ],
+      pages   => $Treeview->{TOTAL},
+      qs      => $pages_qs,
+      ID      => 'COUNTRY_ID',
+      MENU    => "$lang{ADD}:index=$index&add_form=1&$pages_qs:add",
+    }
+  );
+
+  foreach my $line (@$country_list) {
+    $table->addrow($line->{id}, $line->{name}, $html->button($lang{CHANGE}, "index=$index&chg=$line->{id}", { class => 'change' }), $html->button($lang{DEL}, "index=$index&del=$line->{id}", { class => 'del', MESSAGE => 'Delete?' }));
+  }
+
+  print $table->show();
+
+  return 1;
+}
+#**********************************************************
+=head2 treeview_add_region() - Add region to DB and show country, region in table
+
+  Arguments:
+     
+  Returns:
+    true
+=cut
+#**********************************************************
+sub treeview_add_region {
+  my $show_template = $FORM{region_form} || 0;
+  $Treeview->{ACTION}     = 'add_region';
+  $Treeview->{LNG_ACTION} = $lang{ADD};
+  if ($FORM{add_region}) {
+    $Treeview->region_add({%FORM});
+    if (!$Treeview->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+
+  my $country_select = $html->form_select(
+    'COUNTRY_ID',
+    {
+      SELECTED => $FORM{COUNTRY_ID} || q{},
+      SEL_LIST  => $Treeview->get_country({ COLS_NAME => 1 }),
+      SEL_KEY   => 'id',
+      SEL_VALUE => 'name'
+    }
+  );
+  $html->tpl_show(_include('treeview_add_region', 'Treeview'), { COUNTRY_SELECT => $country_select, %$Treeview });
+
+  my $country_reg_list = $Treeview->get_region_country();
+  my $table            = $html->table(
+    {
+      width   => '100%',
+      caption => $lang{COUNTRY},
+      border  => 1,
+      title   => [ $lang{REGION}, $lang{COUNTRY} ],
+      pages   => $Treeview->{TOTAL},
+      qs      => $pages_qs,
+      ID      => 'COUNTRY_ID',
+      MENU    => "$lang{ADD}:index=$index&add_form=1&$pages_qs:add",
+    }
+  );
+  foreach my $line (@$country_reg_list) {
+    $table->addrow($line->{name}, $line->{country_name}, $html->button($lang{CHANGE}, "index=$index&chg=$line->{id}", { class => 'change' }), $html->button($lang{DEL}, "index=$index&del=$line->{id}", { class => 'del', MESSAGE => 'Delete?' }));
+  }
+
+  print $table->show();
+
+  return 1;
+}
+#**********************************************************
+=head2 treeview_add_city() - Add city to DB and show country,region,city in table
+
+  Arguments:
+     
+  Returns:
+    true
+=cut
+#**********************************************************
+sub treeview_add_city {
+  my $show_template = $FORM{city_form} || 0;
+  $Treeview->{ACTION}     = 'add_city';
+  $Treeview->{LNG_ACTION} = $lang{ADD};
+  if ($FORM{add_city}) {
+    $Treeview->city_add({%FORM});
+    if (!$Treeview->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+
+  my $region_select = $html->form_select(
+    'REGION_ID',
+    {
+      SELECTED => $FORM{REGION_ID} || q{},
+      SEL_LIST  => $Treeview->get_region({ COLS_NAME => 1 }),
+      SEL_KEY   => 'id',
+      SEL_VALUE => 'name'
+    }
+  );
+  $html->tpl_show(_include('treeview_add_city', 'Treeview'), { REGION_SELECT => $region_select, %$Treeview });
+  my $city_region_list = $Treeview->get_city_region_country();
+  my $table            = $html->table(
+    {
+      width   => '100%',
+      caption => $lang{COUNTRY},
+      border  => 1,
+      title   => [ $lang{CITY}, $lang{REGION}, $lang{COUNTRY} ],
+      pages   => $Treeview->{TOTAL},
+      qs      => $pages_qs,
+      ID      => 'REGION_ID',
+      MENU    => "$lang{ADD}:index=$index&add_form=1&$pages_qs:add",
+    }
+  );
+
+  foreach my $line (@$city_region_list) {
+    $table->addrow($line->{name}, $line->{region_name}, $line->{country_name}, $html->button($lang{CHANGE}, "index=$index&chg=$line->{id}", { class => 'change' }), $html->button($lang{DEL}, "index=$index&del=$line->{id}", { class => 'del', MESSAGE => 'Delete?' }));
+  }
+
+  print $table->show();
+return 1;
+}
+#**********************************************************
+=head2 treeview_add_district() - Add district to DB and show country,region,city,district in table
+
+  Arguments:
+     
+  Returns:
+    true
+=cut
+#**********************************************************
+sub treeview_add_district {
+  my $show_template = $FORM{district_form} || 0;
+  $Treeview->{ACTION}     = 'add_district';
+  $Treeview->{LNG_ACTION} = $lang{ADD};
+  if ($FORM{add_district}) {
+    $Treeview->district_add({%FORM});
+    if (!$Treeview->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+
+  my $city_select = $html->form_select(
+    'CITY_ID',
+    {
+      SELECTED => $FORM{CITY_ID} || q{},
+      SEL_LIST  => $Treeview->get_city({ COLS_NAME => 1 }),
+      SEL_KEY   => 'id',
+      SEL_VALUE => 'name'
+    }
+  );
+  $html->tpl_show(_include('treeview_add_district', 'Treeview'), { CITY_SELECT => $city_select, %$Treeview });
+
+  my $city_district_list = $Treeview->get_district_city_region_country();
+  my $table              = $html->table(
+    {
+      width   => '100%',
+      caption => $lang{DISTRICT},
+      border  => 1,
+      title   => [ $lang{DISTRICT}, $lang{CITY}, $lang{REGION}, $lang{COUNTRY} ],
+      pages   => $Treeview->{TOTAL},
+      qs      => $pages_qs,
+      ID      => 'CITY_ID',
+      MENU    => "$lang{ADD}:index=$index&add_form=1&$pages_qs:add",
+    }
+  );
+
+  foreach my $line (@$city_district_list) {
+    $table->addrow($line->{name}, $line->{city_name}, $line->{region_name}, $line->{country_name}, $html->button($lang{CHANGE}, "index=$index&chg=$line->{id}", { class => 'change' }), $html->button($lang{DEL}, "index=$index&del=$line->{id}", { class => 'del', MESSAGE => 'Delete?' }));
+  }
+
+  print $table->show();
+  return 1;
+}
+#**********************************************************
+=head2 treeview_add_street() - Add street to DB and 
+  show country,region,city,district,street in table
+
+  Arguments:
+     
+  Returns:
+    true
+=cut
+#**********************************************************
+sub treeview_add_street {
+  my $show_template = $FORM{street_form} || 0;
+  $Treeview->{ACTION}     = 'add_street';
+  $Treeview->{LNG_ACTION} = $lang{ADD};
+  if ($FORM{add_street}) {
+    $Treeview->street_add({%FORM});
+    if (!$Treeview->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+
+  my $district_select = $html->form_select(
+    'DISTRICT_ID',
+    {
+      SELECTED => $FORM{DISTRICT_ID} || q{},
+      SEL_LIST  => $Treeview->get_district({ COLS_NAME => 1 }),
+      SEL_KEY   => 'id',
+      SEL_VALUE => 'name'
+    }
+  );
+  $html->tpl_show(_include('treeview_add_street', 'Treeview'), { DISTRICT_SELECT => $district_select, %$Treeview });
+
+  my $district_street_list = $Treeview->get_street_district_city_region_country();
+  my $table                = $html->table(
+    {
+      width   => '100%',
+      caption => $lang{STREET},
+      border  => 1,
+      title   => [ $lang{STREET}, $lang{DISTRICT}, $lang{CITY}, $lang{REGION}, $lang{COUNTRY} ],
+      pages   => $Treeview->{TOTAL},
+      qs      => $pages_qs,
+      ID      => 'DISTRICT_ID',
+      MENU    => "$lang{ADD}:index=$index&add_form=1&$pages_qs:add",
+    }
+  );
+
+  foreach my $line (@$district_street_list) {
+    $table->addrow(
+      $line->{street_name}, $line->{district_name},
+      $line->{city_name}, $line->{region_name}, $line->{country_name},
+      $html->button($lang{CHANGE}, "index=$index&chg=$line->{id}", { class => 'change' }),
+      $html->button($lang{DEL}, "index=$index&del=$line->{id}", { class => 'del', MESSAGE => 'Delete?' })
+    );
+  }
+
+  print $table->show();
+  return 1;
+}
+#**********************************************************
+=head2 treeview_add_building() - Add building to DB and 
+  show country,region,city,district,street,building in table
+
+  Arguments:
+     
+  Returns:
+    true
+=cut
+#**********************************************************
+sub treeview_add_building {
+  my $show_template = $FORM{building_form} || 0;
+  $Treeview->{ACTION}     = 'add_building';
+  $Treeview->{LNG_ACTION} = $lang{ADD};
+  if ($FORM{add_building}) {
+    $Treeview->building_add({%FORM});
+    if (!$Treeview->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+
+  my $street_select = $html->form_select(
+    'STREET_ID',
+    {
+      SELECTED => $FORM{STREET_ID} || q{},
+      SEL_LIST  => $Treeview->get_street({ COLS_NAME => 1 }),
+      SEL_KEY   => 'id',
+      SEL_VALUE => 'name'
+    }
+  );
+  $html->tpl_show(_include('treeview_add_building', 'Treeview'), { STREET_SELECT => $street_select, %$Treeview });
+
+  my $full_address_list = $Treeview->get_building_street_district_city_region_country();
+  my $table             = $html->table(
+    {
+      width   => '100%',
+      caption => $lang{BUILDING},
+      border  => 1,
+      title   => [ $lang{BUILDING}, $lang{STREET}, $lang{DISTRICT}, $lang{CITY}, $lang{REGION}, $lang{COUNTRY} ],
+      pages   => $Treeview->{TOTAL},
+      qs      => $pages_qs,
+      ID      => 'STREET_ID',
+      MENU    => "$lang{ADD}:index=$index&add_form=1&$pages_qs:add",
+    }
+  );
+
+  foreach my $line (@$full_address_list) {
+    $table->addrow(
+      $line->{name}, $line->{street_name}, $line->{district_name},
+      $line->{city_name}, $line->{region_name}, $line->{country_name},
+      $html->button($lang{CHANGE}, "index=$index&chg=$line->{id}", { class => 'change' }),
+      $html->button($lang{DEL}, "index=$index&del=$line->{id}", { class => 'del', MESSAGE => 'Delete?' })
+    );
+  }
+
+  print $table->show();
+  return 1;
+}
+1;
+

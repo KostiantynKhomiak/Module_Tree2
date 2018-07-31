@@ -1,0 +1,17 @@
+$lang{PIP}='Прізвище Імя По-батькові';
+$lang{EMAIL}='Пошта';
+$lang{CELL}='Телефон';
+$lang{PASSWORD}='Пароль';
+$lang{ID}='Id';
+$lang{TRASH}='Видалити';
+$lang{CHG}='Змінити';
+$lang{REGION}='Область';
+$lang{BUILDING}='Будинок';
+$lang{TREEVIEW}='Дерево адрес';
+$lang{ADD_COUNTRY}='Додати країну';
+$lang{ADD_REGION}='Додати область';
+$lang{ADD_CITY}='Додати місто';
+$lang{ADD_DISTRICT}='Додати район';
+$lang{ADD_STREET}='Додати вулицю';
+$lang{ADD_BUILDING}='Додати номер будинок';
+1;
